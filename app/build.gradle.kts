@@ -50,7 +50,18 @@ android {
 }
 
 dependencies {
-
+    // Your other dependencies...
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    implementation("androidx.cardview:cardview:1.0.0")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    val fragment_version = "1.6.2"
+    val appcompat_version = "1.6.1"
+    implementation("androidx.appcompat:appcompat:$appcompat_version")
+    implementation("androidx.appcompat:appcompat-resources:$appcompat_version")
+    implementation("androidx.fragment:fragment-ktx:$fragment_version")
+    implementation("androidx.recyclerview:recyclerview-selection:1.1.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.2.0-alpha13")
+    implementation("androidx.constraintlayout:constraintlayout-compose:1.1.0-alpha13")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

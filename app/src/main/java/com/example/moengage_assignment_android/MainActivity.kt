@@ -3,10 +3,12 @@ package com.example.moengage_assignment_android
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.AsyncTask
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -21,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.moengage_assignment_android.fragment.NewsTitleFragment
 import com.example.moengage_assignment_android.ui.theme.MoEngage_Assignment_AndroidTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -35,129 +38,118 @@ import java.net.URL
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
+import androidx.fragment.app.commit
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.example.moengage_assignment_android.adapter.NewsItemAdapter
 
-class MainActivity : ComponentActivity() {
+
+
+class MainActivity : AppCompatActivity() {
+
+    private lateinit var rvNewsTitle: RecyclerView
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            MoEngage_Assignment_AndroidTheme {
-                // A surface container using the 'background' color from the theme
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    NewsScreen()
+        setContentView(R.layout.activity_main)
+        rvNewsTitle=findViewById<RecyclerView>(R.id.rvNewsTitle)
+        rvNewsTitle.layoutManager = LinearLayoutManager(this)
+
+        // Fetch news data
+        FetchNewsTask(this@MainActivity).execute("https://candidate-test-data-moengage.s3.amazonaws.com/Android/news-api-feed/staticResponse.json")
+    }
+    inner class FetchNewsTask(private val context: Context) : AsyncTask<String, Void, List<NewsArticleApiResponse.Article>>() {
+        override fun doInBackground(vararg urls: String?): List<NewsArticleApiResponse.Article> {
+            val url = urls[0]
+            val articlesList = ArrayList<NewsArticleApiResponse.Article>()
+
+            try {
+                val url = URL(url)
+                val urlConnection = url.openConnection() as HttpURLConnection
+                urlConnection.requestMethod = "GET"
+
+                val inputStream = urlConnection.inputStream
+                val bufferedReader = BufferedReader(InputStreamReader(inputStream))
+
+                val stringBuilder = StringBuilder()
+                var line: String?
+                while (bufferedReader.readLine().also { line = it } != null) {
+                    stringBuilder.append(line)
                 }
+
+                val response = stringBuilder.toString()
+                Log.d("api_res",response.toString())
+
+                // Parse JSON response
+                val jsonResponse = JSONObject(response)
+                val articlesJsonArray = jsonResponse.optJSONArray("articles")
+
+                for (i in 0 until articlesJsonArray.length()) {
+                    val articleJsonObject = articlesJsonArray.optJSONObject(i)
+                    val article = NewsArticleApiResponse.Article(
+                        title = articleJsonObject.optString("title", "N/A"),
+                        description = articleJsonObject.optString("description", "N/A"),
+                        url = articleJsonObject.optString("url", ""),
+                        urlToImage = articleJsonObject.optString("urlToImage", ""),
+                        publishedAt = articleJsonObject.optString("publishedAt", "")
+                    )
+                    articlesList.add(article)
+                }
+
+                inputStream.close()
+                urlConnection.disconnect()
+            } catch (e: Exception) {
+                Log.e("FetchNewsTask", "Error fetching data: ${e.message}")
+            }
+
+            return articlesList
+        }
+
+        override fun onPostExecute(result: List<NewsArticleApiResponse.Article>?) {
+            super.onPostExecute(result)
+            result?.let {
+                // Set adapter to RecyclerView
+                val adapter = NewsItemAdapter(context, it)
+                rvNewsTitle.adapter = adapter
             }
         }
     }
-}
+    private fun parseJsonResponse(response: String) {
+        try {
+            val jsonResponse = JSONObject(response)
+            val status = jsonResponse.optString("status")
+            val articlesJsonArray = jsonResponse.optJSONArray("articles")
 
-@Composable
-fun NewsScreen() {
-    var newsList by remember { mutableStateOf<List<News>>(emptyList()) }
+            val articlesList = ArrayList<NewsArticleApiResponse.Article>()
+            for (i in 0 until articlesJsonArray.length()) {
+                val articleJsonObject = articlesJsonArray.optJSONObject(i)
+                val sourceJsonObject = articleJsonObject.optJSONObject("source")
+                val source = NewsArticleApiResponse.Source(
+                    id = sourceJsonObject?.optString("id"),
+                    name = sourceJsonObject?.optString("name")
+                )
+                val article = NewsArticleApiResponse.Article(
+                    source = source,
+                    author = articleJsonObject.optString("author"),
+                    title = articleJsonObject.optString("title"),
+                    description = articleJsonObject.optString("description"),
+                    url = articleJsonObject.optString("url"),
+                    urlToImage = articleJsonObject.optString("urlToImage"),
+                    publishedAt = articleJsonObject.optString("publishedAt"),
+                    content = articleJsonObject.optString("content")
+                )
+                articlesList.add(article)
+            }
 
-    LaunchedEffect(Unit) {
-        fetchData { news ->
-            newsList = news
-        }
-    }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = "News Articles",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        NewsList(newsList)
-    }
-}
-
-@Composable
-fun NewsList(newsList: List<News>) {
-    Column {
-        newsList.forEach { news ->
-            NewsItem(news)
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-    }
-}
-
-@Composable
-fun NewsItem(news: News) {
-    val context = LocalContext.current
-    Text(
-        text = news.title,
-        style = MaterialTheme.typography.bodyLarge,
-        modifier = Modifier.clickable {
-            openNewsUrl(context, news.url)
-        }
-    )
-}
-
-data class News(
-    val title: String,
-    val url: String
-)
-
-private fun openNewsUrl(context: Context, url: String) {
-    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-    intent.`package` = "com.android.chrome" // Package name of Chrome browser
-
-    if (intent.resolveActivity(context.packageManager) != null) {
-        context.startActivity(intent)
-    } else {
-        // If Chrome browser is not installed, open URL in default browser
-        intent.`package` = null
-        if (intent.resolveActivity(context.packageManager) != null) {
-            context.startActivity(intent)
-        } else {
-            Log.d("NewsItem", "No activity found to handle URL: $url")
+            // Now you can use the 'newsArticleApiResponse' object as needed
+//            Log.d("NewsApiResponse", "Parsed Response: $newsArticleApiResponse")
+        } catch (e: Exception) {
+            Log.e("parseJsonResponse", "Error parsing JSON: ${e.message}")
         }
     }
 }
 
 
-private suspend fun fetchData(onSuccess: (List<News>) -> Unit) {
-    val response = withContext(Dispatchers.IO) {
-        getJsonResponse("https://candidate-test-data-moengage.s3.amazonaws.com/Android/news-api-feed/staticResponse.json")
-    }
-    val newsList = parseJson(response)
-    onSuccess(newsList)
-}
 
-private suspend fun getJsonResponse(urlString: String): String = suspendCoroutine { continuation ->
-    val url = URL(urlString)
-    val connection: HttpURLConnection = url.openConnection() as HttpURLConnection
-    val response = StringBuilder()
-    try {
-        val reader = BufferedReader(InputStreamReader(connection.inputStream))
-        var line: String?
-        while (reader.readLine().also { line = it } != null) {
-            response.append(line)
-        }
-        continuation.resume(response.toString())
-    } catch (e: Exception) {
-        continuation.resumeWithException(e)
-    } finally {
-        connection.disconnect()
-    }
-}
-
-private fun parseJson(jsonString: String): List<News> {
-    val jsonObject = JSONObject(jsonString)
-    val jsonArray = jsonObject.getJSONArray("articles")
-    val newsList = mutableListOf<News>()
-    for (i in 0 until jsonArray.length()) {
-        val article = jsonArray.getJSONObject(i)
-        val title = article.getString("title")
-        val url = article.getString("url")
-        newsList.add(News(title, url))
-    }
-    return newsList
-}
