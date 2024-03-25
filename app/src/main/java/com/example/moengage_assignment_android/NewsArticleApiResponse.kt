@@ -11,7 +11,7 @@ data class NewsArticleApiResponse (
 
     data class Article (
         var source: Source? = Source(),
-        var author: String? = null,
+        var author: String? = null,  // Declare as nullable
         var title: String? = null,
         var description: String? = null,
         var url: String? = null,

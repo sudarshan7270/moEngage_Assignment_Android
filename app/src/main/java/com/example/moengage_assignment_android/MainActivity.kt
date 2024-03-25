@@ -42,27 +42,33 @@ import androidx.fragment.app.commit
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.moengage_assignment_android.adapter.NewsItemAdapter
-
+import com.example.moengage_assignment_android.adapter.NewsSourcesAdapter
 
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var rvNewsTitle: RecyclerView
+    private lateinit var rvSourcesList:RecyclerView
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        rvNewsTitle=findViewById<RecyclerView>(R.id.rvNewsTitle)
-        rvNewsTitle.layoutManager = LinearLayoutManager(this)
+        rvSourcesList=findViewById<RecyclerView>(R.id.rvSources)
+        rvSourcesList.layoutManager=LinearLayoutManager(this)
+//        rvNewsTitle.layoutManager = LinearLayoutManager(this)
 
         // Fetch news data
         FetchNewsTask(this@MainActivity).execute("https://candidate-test-data-moengage.s3.amazonaws.com/Android/news-api-feed/staticResponse.json")
     }
-    inner class FetchNewsTask(private val context: Context) : AsyncTask<String, Void, List<NewsArticleApiResponse.Article>>() {
-        override fun doInBackground(vararg urls: String?): List<NewsArticleApiResponse.Article> {
+    inner class FetchNewsTask(private val context: Context) : AsyncTask<String, Void, Pair<List<NewsArticleApiResponse.Article>, List<String>>>() {
+
+        private val allArticles = mutableListOf<NewsArticleApiResponse.Article>()
+        private val allSources = mutableListOf<String>()
+
+        override fun doInBackground(vararg urls: String?): Pair<List<NewsArticleApiResponse.Article>, List<String>> {
             val url = urls[0]
             val articlesList = ArrayList<NewsArticleApiResponse.Article>()
+            val uniqueSources = HashSet<String>()
 
             try {
                 val url = URL(url)
@@ -79,20 +85,41 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 val response = stringBuilder.toString()
-                Log.d("api_res",response.toString())
+                Log.d("api_res", response.toString())
 
                 // Parse JSON response
                 val jsonResponse = JSONObject(response)
                 val articlesJsonArray = jsonResponse.optJSONArray("articles")
+                Log.d("api_res", articlesJsonArray.toString())
 
                 for (i in 0 until articlesJsonArray.length()) {
                     val articleJsonObject = articlesJsonArray.optJSONObject(i)
+                    val author = articleJsonObject.optString("author")
+                    val authorName = if (author.isNullOrBlank()) "Unknown" else author
+
+                    val sourceJsonObject = articleJsonObject.optJSONObject("source")
+                    val source = NewsArticleApiResponse.Source(
+                        id = sourceJsonObject?.optString("id"),
+                        name = sourceJsonObject?.optString("name")
+                    )
+
+                    // Check if the source name is already logged
+                    if (!uniqueSources.contains(source?.name)) {
+                        Log.d("Unique Source Name", source?.name ?: "Unknown")
+                        uniqueSources.add(source?.name ?: "")
+                    }
+
+
                     val article = NewsArticleApiResponse.Article(
+                        source = source,
+                        author = authorName,
                         title = articleJsonObject.optString("title", "N/A"),
                         description = articleJsonObject.optString("description", "N/A"),
                         url = articleJsonObject.optString("url", ""),
                         urlToImage = articleJsonObject.optString("urlToImage", ""),
-                        publishedAt = articleJsonObject.optString("publishedAt", "")
+                        publishedAt = articleJsonObject.optString("publishedAt", ""),
+                        content = articleJsonObject.optString("content", "")
+
                     )
                     articlesList.add(article)
                 }
@@ -103,19 +130,34 @@ class MainActivity : AppCompatActivity() {
                 Log.e("FetchNewsTask", "Error fetching data: ${e.message}")
             }
 
-            return articlesList
+            allArticles.addAll(articlesList)
+            allSources.addAll(uniqueSources)
+            return Pair(articlesList, uniqueSources.toList())
         }
 
-        override fun onPostExecute(result: List<NewsArticleApiResponse.Article>?) {
+        override fun onPostExecute(result: Pair<List<NewsArticleApiResponse.Article>, List<String>>?) {
             super.onPostExecute(result)
-            result?.let {
-                // Set adapter to RecyclerView
-                val adapter = NewsItemAdapter(context, it)
-                rvNewsTitle.adapter = adapter
+            result?.let { (articles, sources) ->
+                // Set adapter to RecyclerView for sources
+                Log.d("All Articles", articles.toString())
+                Log.d("All Sources", sources.toString())
+                val sourcesAdapter = NewsSourcesAdapter(context, sources) { sourceName ->
+                    // When a source item is clicked, filter articles based on the clicked source name
+                    val filteredArticles = allArticles.filter { it.source?.name == sourceName }
+                    Log.d("Filtered Articles Size", filteredArticles.size.toString())
+
+                    Log.d("sourcsClick", "Source Name: $sourceName")
+                    filteredArticles.forEachIndexed { index, article ->
+                        Log.d("sourcsClickArticle $index", article.toString())
+                    }
+                }
+                rvSourcesList.adapter = sourcesAdapter
             }
         }
+
     }
-    private fun parseJsonResponse(response: String) {
+
+        private fun parseJsonResponse(response: String) {
         try {
             val jsonResponse = JSONObject(response)
             val status = jsonResponse.optString("status")
@@ -150,6 +192,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
+
 
 
 
