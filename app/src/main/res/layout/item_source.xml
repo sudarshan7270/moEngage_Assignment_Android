@@ -13,6 +13,7 @@
         app:cardCornerRadius="8dp">
 
         <LinearLayout
+            android:background="@drawable/rounded_background"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
@@ -36,6 +37,7 @@
         app:cardCornerRadius="8dp">
 
         <LinearLayout
+            android:background="@drawable/rounded_background"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
