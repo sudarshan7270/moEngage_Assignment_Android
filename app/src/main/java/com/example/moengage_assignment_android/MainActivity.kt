@@ -6,6 +6,8 @@ import android.net.Uri
 import android.os.AsyncTask
 import android.os.Bundle
 import android.util.Log
+import android.view.View
+import android.widget.ProgressBar
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
@@ -49,6 +51,8 @@ import com.example.moengage_assignment_android.adapter.NewsSourcesAdapter
 class MainActivity : AppCompatActivity() {
 
     private lateinit var rvSourcesList:RecyclerView
+    private lateinit var progrssLoader: ProgressBar
+
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,8 +61,13 @@ class MainActivity : AppCompatActivity() {
         rvSourcesList=findViewById<RecyclerView>(R.id.rvSources)
         rvSourcesList.layoutManager=LinearLayoutManager(this)
 //        rvNewsTitle.layoutManager = LinearLayoutManager(this)
+        progrssLoader=findViewById<ProgressBar>(R.id.loader)
+        progrssLoader.visibility=View.VISIBLE
+
 
         // Fetch news data
+
+
         FetchNewsTask(this@MainActivity).execute("https://candidate-test-data-moengage.s3.amazonaws.com/Android/news-api-feed/staticResponse.json")
     }
     inner class FetchNewsTask(private val context: Context) : AsyncTask<String, Void, Pair<List<NewsArticleApiResponse.Article>, List<String>>>() {
@@ -139,6 +148,9 @@ class MainActivity : AppCompatActivity() {
         override fun onPostExecute(result: Pair<List<NewsArticleApiResponse.Article>, List<String>>?) {
             super.onPostExecute(result)
             result?.let { (articles, sources) ->
+                progrssLoader.visibility=View.GONE
+
+
                 // Set adapter to RecyclerView for sources
                 Log.d("All Articles", articles.toString())
                 Log.d("All Sources", sources.toString())

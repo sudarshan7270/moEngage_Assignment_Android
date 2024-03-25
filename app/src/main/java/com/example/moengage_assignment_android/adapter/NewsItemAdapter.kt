@@ -1,6 +1,8 @@
 package com.example.moengage_assignment_android.adapter
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -31,6 +33,10 @@ class NewsItemAdapter(private val articles: List<NewsArticleApiResponse.Article>
              .load(article.urlToImage)
              .error(R.drawable.icon_failed_hedingimg)
              .into(holder.itemView.findViewById(R.id.imgNews))
+        holder.itemView.setOnClickListener {
+            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(article.url))
+            holder.itemView.context.startActivity(browserIntent)
+        }
 
         // You can load images using any image loading library like Glide, Picasso, etc.
     }
