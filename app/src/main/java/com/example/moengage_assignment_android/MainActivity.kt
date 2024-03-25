@@ -41,6 +41,7 @@ import kotlin.coroutines.suspendCoroutine
 import androidx.fragment.app.commit
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.moengage_assignment_android.activity.HeadingBasedOnSourceActivity
 import com.example.moengage_assignment_android.adapter.NewsItemAdapter
 import com.example.moengage_assignment_android.adapter.NewsSourcesAdapter
 
@@ -150,6 +151,13 @@ class MainActivity : AppCompatActivity() {
                     filteredArticles.forEachIndexed { index, article ->
                         Log.d("sourcsClickArticle $index", article.toString())
                     }
+                    val articlesJson = articlesToJsonString(filteredArticles)
+                    Log.d("filterJson",articlesJson.toString())
+                    val intent = Intent(context, HeadingBasedOnSourceActivity::class.java).apply {
+                        putExtra("articlesJson", articlesJson)
+                    }
+                    context.startActivity(intent)
+
                 }
                 rvSourcesList.adapter = sourcesAdapter
             }
@@ -190,6 +198,22 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e("parseJsonResponse", "Error parsing JSON: ${e.message}")
         }
+    }
+
+    private fun articlesToJsonString(articles: List<NewsArticleApiResponse.Article>): String {
+        val jsonArray = JSONArray()
+        articles.forEach { article ->
+            val jsonObject = JSONObject()
+            jsonObject.put("author", article.author)
+            jsonObject.put("title", article.title)
+            jsonObject.put("description", article.description)
+            jsonObject.put("url", article.url)
+            jsonObject.put("urlToImage", article.urlToImage)
+            jsonObject.put("publishedAt", article.publishedAt)
+            jsonObject.put("content", article.content)
+            jsonArray.put(jsonObject)
+        }
+        return jsonArray.toString()
     }
 }
 
